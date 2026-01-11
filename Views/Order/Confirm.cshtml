@@ -1,0 +1,40 @@
+﻿@model int?
+
+@{
+    ViewData["Title"] = "Order completed";
+    Layout = "~/Views/Shared/MyLayout.cshtml";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/style.css" />
+    <link rel="stylesheet" href="~/css/shop-style.css" />
+}
+
+<main>
+    <div class="container py-5">
+        <div class="card mx-auto" style="max-width:600px;">
+            <div class="card-body text-center">
+                <h1 class="card-title mb-3">Order completed</h1>
+                @if (Model.HasValue)
+                {
+                    <p class="mb-2">Số hóa đơn của bạn là: <strong>@Model.Value</strong>.</p>
+                }
+                <p class="text-muted mb-4">Đặt hàng thành công.</p>
+
+                <div class="d-flex justify-content-center gap-2">
+                    <a asp-controller="Home" asp-action="Index" class="btn btn-outline-primary">Về trang chủ</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+@section Scripts {
+    <!-- JavaScript Libraries -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+    <script src="~/lib/wow/wow.min.js"></script>
+    <script src="~/lib/owlcarousel/owl.carousel.min.js"></script>
+
+    <script type="text/javascript" src="~/js/script.js"></script>
+    <script type="text/javascript" src="~/js/shop-script.js"></script>
+}

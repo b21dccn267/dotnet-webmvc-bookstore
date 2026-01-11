@@ -1,0 +1,262 @@
+﻿@model IEnumerable<TSach>
+
+@{
+    @* for sales count if implementing *@
+    @*var counts = ViewBag.SalesCounts as Dictionary<int, int> ?? new Dictionary<int, int>();*@
+    var page = (int)ViewBag.Page;
+    var pageSize = (int)ViewBag.PageSize;
+    var totalItems = (int)ViewBag.TotalItems;
+    var totalPages = (int)ViewBag.TotalPages;
+    string? selectedCategoryId = ViewBag.SelectedCategoryId as string;
+    string? currentQ = ViewBag.Search as string;
+    string sort = (string)ViewBag.Sort ?? "default";
+    // sliding window size 
+    var window = 5;
+    var half = window / 2;
+    var start = Math.Max(1, page - half);
+    var end = Math.Min(totalPages, start + window - 1);
+    if (end - start + 1 < window) start = Math.Max(1, end - window + 1);
+    var crumbs = ViewBag.Breadcrumbs as List<(string Text, string Href)>;
+}
+
+@{
+    ViewData["Title"] = "Shop";
+    Layout = "~/Views/Shared/MyLayout.cshtml";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/style.css" />
+    <link rel="stylesheet" href="~/css/shop-style.css" />
+}
+
+<main>
+    <!-- Spinner Start -->
+    <div id="spinner"
+         class="show bg-white position-fixed translate-middle w-100 vh-100 top-50 start-50 d-flex align-items-center justify-content-center">
+        <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
+            <span class="sr-only">Loading...</span>
+        </div>
+    </div>
+    <!-- Spinner End -->
+    <!-- Single Page Header start -->
+    @if (crumbs != null && crumbs.Any())
+    {
+        <nav aria-label="breadcrumb" style="padding-left: 100px;">
+            <ol class="breadcrumb justify-content-left">
+                @foreach (var c in crumbs)
+                {
+                    if (!string.IsNullOrEmpty(c.Href))
+                    {
+                        <li class="breadcrumb-item"><a href="@c.Href">@c.Text</a></li>
+                    }
+                    else
+                    {
+                        <li class="breadcrumb-item active" aria-current="page">@c.Text</li>
+                    }
+                }
+            </ol>
+        </nav>
+    }
+    <!-- Single Page Header End -->
+
+    <!-- Shop Page Start -->
+    <div class="container-fluid shop">
+        <div class="container">
+            <div class="row g-4">
+                <div class="col-lg-3 wow fadeInUp" data-wow-delay="0.1s">
+                    <div class="product-categories mb-4">
+                        <h4>Thể loại</h4>
+                        <ul class="list-unstyled">
+                            <!--all categories-->
+                            @{
+                                var isAllActive = string.IsNullOrEmpty(selectedCategoryId);
+                            }
+                            <li>
+                                <div class="categories-item">
+                                    <a asp-controller="Shop" asp-action="Index"
+                                       asp-route-categoryId=""
+                                       asp-route-page="1"
+                                       asp-route-pageSize="@pageSize"
+                                       class="text-dark @(isAllActive ? "active" : "")">
+                                        <i class="fas fa-apple-alt text-secondary me-2"></i>
+                                        Tất cả
+                                    </a>
+                                </div>
+                            </li>
+                            <!--each category-->
+                            @foreach (var tl in (List<TTheLoai>)ViewBag.Categories)
+                            {
+                                var maTheLoai = tl.MaTheLoai;
+                                var isActive = !string.IsNullOrEmpty(selectedCategoryId) &&
+                                string.Equals(selectedCategoryId, maTheLoai, StringComparison.OrdinalIgnoreCase);
+                                <li>
+                                    <div class="categories-item">
+                                        <a asp-controller="Shop" asp-action="Index"
+                                           asp-route-categoryId="@maTheLoai"
+                                           asp-route-page="1"
+                                           asp-route-pageSize="@pageSize"
+                                           class="text-dark @(isActive ? "active" : "")">
+                                            <i class="fas fa-apple-alt text-secondary me-2"></i>
+                                            @tl.TenTheLoai
+                                        </a>
+                                    </div>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                    
+                </div>
+                <div class="col-lg-9 wow fadeInUp" data-wow-delay="0.1s">
+                    <div class="row g-4">
+                        <div class="col-xl-7">
+                            <div class="input-group w-100 mx-auto d-flex search-container">
+                                <form asp-action="Index" method="get" role="search" class="search-form">
+                                    <!--the name of input have to match param-->
+                                    <input type="search" name="q" class="form-control p-3" value="@currentQ"
+                                            placeholder="Nhập từ khóa tìm kiếm" aria-describedby="search-icon-1">
+                                    <button type="submit" class="search-submit">
+                                        <svg class="search very-big">
+                                            <use xlink:href="#search"></use>
+                                        </svg>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        <div class="col-xl-3">
+                            <form method="get" id="sort-form">
+                                <label for="sort">Sắp xếp theo:</label>
+                                <!--the name of select have to match param-->
+                                <select id="sort" name="sort"
+                                        class="border-0 form-select-sm bg-light me-3"
+                                        onchange="this.form.submit()">
+                                    <option value="default">Mặc định</option>
+                                    <option value="popularity">Phổ biến</option>
+                                    <option value="newest">Hàng mới</option>
+                                    <option value="price-asc">Giá thấp đến cao</option>
+                                    <option value="price-desc">Giá cao đến thấp</option>
+                                </select>
+                                <input type="hidden" name="categoryId" value="@selectedCategoryId" />
+                                <input type="hidden" name="page" value="1" />
+                            </form>
+                        </div>
+                    </div>
+                    <!--Book section-->
+                    <div class="tab-content">
+                        <div id="tab-5" class="tab-pane fade show p-0 active">
+                            <div class="row g-4 product">
+                                @foreach (var book in Model)
+                                {
+                                    <div class="col-lg-3">
+                                        <div class="card position-relative p-4 border rounded-3 product-card">
+                                            <a asp-controller="Shop" asp-action="Details" asp-route-id="@book.MaSach" class="product-link">
+                                                @{
+                                                    var raw = book?.Anh ?? "";
+                                                    var safeFile = Uri.EscapeDataString(raw) + ".jpg";
+                                                    var imgSrc = Url.Content("~/images/books/" + safeFile);
+                                                }
+                                                <img src="@imgSrc" style="width:200px; height:300px;object-fit: cover;" alt="@book.TenSach"
+                                                    onerror="this.onerror=null;this.src='~/images/books/placeholder.png';"
+                                                    class="book-cover"/>
+                                                <!--Price-->
+                                                <span class="price text-primary fw-bold mb-2 fs-5">@(book.DonGiaBan is decimal d ? (d * 10000m).ToString("C", new System.Globalization.CultureInfo("vi-VN")) : "")</span>
+                                                <!--Author name-->
+                                                <p class="my-2 me-2 fs-6 text-black-50">@book.TacGia</p>
+                                                <!--Title-->
+                                                <h6 class="mt-4 mb-0 fw-bold">
+                                                    <a asp-controller="Shop" asp-action="Details" asp-route-id="@book.MaSach" class="product-link">@book.TenSach</a>
+                                                </h6>
+                                                <!--Sales count (no value yet)-->
+                                                <div class="sales-count">
+                                                    @*@(counts.TryGetValue(book.MaSach, out var c) ? c : 0)*@
+                                                </div>
+                                                <div class="card-concern position-absolute start-0 end-0 d-flex gap-2">
+                                                    <!--Add to cart button-->
+                                                    <form asp-controller="Cart" asp-action="Add" method="post">
+                                                        <button type="submit" href="#" class="btn btn-dark" data-bs-toggle="tooltip" data-bs-placement="top"
+                                                                data-bs-title="Add to cart">
+                                                            <svg class="cart">
+                                                                <use xlink:href="#cart"></use>
+                                                            </svg>
+                                                        </button>
+                                                        <input type="hidden" name="maSach" value="@book.MaSach" />
+                                                        <input type="hidden" name="soLuong" value="1" min="1" />
+                                                    </form>
+                                                </div>
+                                            </a>
+                                        </div>
+                                    </div>
+                                }
+                                
+                                <!--Pagination-->
+                                <div class="col-12 wow fadeInUp" data-wow-delay="0.1s">
+                                    <div class="pagination d-flex justify-content-center mt-5">
+                                        @* Previous *@
+                                        @if (page > 1)
+                                        {
+                                            <a class="rounded" asp-action="Index" asp-route-q="@ViewBag.Query" 
+                                                asp-route-categoryId="@selectedCategoryId"
+                                                asp-route-page="@(page - 1)" asp-route-pageSize="@pageSize">
+                                                &laquo;
+                                            </a>
+                                        }
+                                        else
+                                        {
+                                            <a class="rounded disabled page-btn" aria-disabled="true">&laquo;</a>
+                                        }
+                                        @* Page numbers (sliding window) *@
+                                        @for (int p = start; p <= end; p++)
+                                        {
+                                            if (p == page)
+                                            {
+                                                <a class="rounded disabled current-page-btn" aria-disabled="true">
+                                                    @p
+                                                </a>
+                                            }
+                                            else
+                                            {
+                                                <a class="rounded" asp-action="Index" asp-route-q="@ViewBag.Query"
+                                                    asp-route-categoryId="@selectedCategoryId"
+                                                    asp-route-page="@p" asp-route-pageSize="@pageSize">
+                                                    @p
+                                                </a>
+                                            }
+                                        }
+                                        @* Next *@
+                                        @if (page < totalPages)
+                                        {
+                                            <a class="rounded" asp-action="Index" asp-route-q="@ViewBag.Query" 
+                                                asp-route-categoryId="@selectedCategoryId"
+                                                asp-route-page="@(page + 1)" asp-route-pageSize="@pageSize">
+                                                &raquo;
+                                            </a>
+                                        }
+                                        else
+                                        {
+                                            <a class="rounded disabled page-btn" aria-disabled="true">&raquo;</a>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Shop Page End -->
+    <!-- Product Banner Start -->
+    
+    <!-- Product Banner End -->
+    <!-- Back to Top -->
+    <a href="#" class="btn btn-primary btn-lg-square back-to-top"><i class="fa fa-arrow-up"></i></a>
+</main>
+
+@section Scripts {
+    <!-- JavaScript Libraries -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+    <script src="~/lib/wow/wow.min.js"></script>
+    <script src="~/lib/owlcarousel/owl.carousel.min.js"></script>
+
+    <script type="text/javascript" src="~/js/script.js"></script>
+    <script type="text/javascript" src="~/js/shop-script.js"></script>
+}
